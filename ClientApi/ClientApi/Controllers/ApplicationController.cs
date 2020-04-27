@@ -1,6 +1,5 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using ClientApi.Dtos;
 using ClientApi.Entities;
@@ -14,12 +13,10 @@ namespace ClientApi.Controllers
     [ApiController]
     public class ApplicationController : ControllerBase
     {
-        private readonly IHttpClientFactory _httpClientFactoryFactory;
         private readonly FooDb _db;
 
-        public ApplicationController(IHttpClientFactory httpClientFactory, FooDb db)
+        public ApplicationController(FooDb db)
         {
-            _httpClientFactoryFactory = httpClientFactory;
             _db = db;
         }
 
@@ -42,34 +39,32 @@ namespace ClientApi.Controllers
         [Route("applications")]
         public async Task<IActionResult> Create(ApplicationDto applicationDto)
         {
-            var typeFuture = _db.Types.DeferredFirstOrDefault(t => t.TypeId == applicationDto.TypeId).FutureValue();
-            var environmentFuture = _db.Environments.DeferredFirstOrDefault(e => e.EnvironmentId == applicationDto.EnvironmentId).FutureValue();
-            var ownerFuture = _db.Owners.DeferredFirstOrDefault(o => o.OwnerId == applicationDto.OwnerId).FutureValue();
-            var versionFuture = _db.Versions.DeferredFirstOrDefault(v => v.VersionId == applicationDto.VersionId).FutureValue();
-            var stageFuture = _db.Stages.DeferredFirstOrDefault(s => s.StageId == applicationDto.StageId).FutureValue();
-            var existingApplicationFuture = _db.Applications.DeferredFirstOrDefault(a => a.Name == applicationDto.Name).FutureValue();
+            var type = await _db.Types.FirstOrDefaultAsync(t => t.TypeId == applicationDto.TypeId);
 
-            var type = await typeFuture.ValueAsync();
-            var environment = await environmentFuture.ValueAsync();
-            var owner = await ownerFuture.ValueAsync();
-            var version = await versionFuture.ValueAsync();
-            var stage = await stageFuture.ValueAsync();
-            var existingApplication = await existingApplicationFuture.ValueAsync();
-            
             if (type == null)
                 return BadRequest($"Invalid TypeId = {applicationDto.TypeId}");
+
+            var environment = await _db.Environments.FirstOrDefaultAsync(e => e.EnvironmentId == applicationDto.EnvironmentId);
 
             if (environment == null)
                 return BadRequest($"Invalid EnvironmentId = {applicationDto.EnvironmentId}");
 
+            var owner = await _db.Owners.FirstOrDefaultAsync(o => o.OwnerId == applicationDto.OwnerId);
+
             if (owner == null)
                 return BadRequest($"Invalid OwnerId = {applicationDto.OwnerId}");
-            
+
+            var version = await _db.Versions.FirstOrDefaultAsync(v => v.VersionId == applicationDto.VersionId);
+
             if (version == null)
-                return BadRequest($"Invalid VersionId = {applicationDto.VersionId}"); 
-            
+                return BadRequest($"Invalid VersionId = {applicationDto.VersionId}");
+
+            var stage = await _db.Stages.FirstOrDefaultAsync(s => s.StageId == applicationDto.StageId);
+
             if (stage == null)
                 return BadRequest($"Invalid StageId = {applicationDto.StageId}");
+
+            var existingApplication = await _db.Applications.FirstOrDefaultAsync(a => a.Name == applicationDto.Name);
 
             if (existingApplication != null)
                 return BadRequest($"Application with 'Name = {applicationDto.Name}' already exists");
