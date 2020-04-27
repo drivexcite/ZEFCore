@@ -7,6 +7,7 @@ using ClientApi.Entities;
 using ClientApi.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Z.EntityFramework.Plus;
 
 namespace ClientApi.Controllers
 {
@@ -41,32 +42,35 @@ namespace ClientApi.Controllers
         [Route("applications")]
         public async Task<IActionResult> Create(ApplicationDto applicationDto)
         {
-            var type = _db.Types.FirstOrDefault(t => t.TypeId == applicationDto.TypeId);
+            var typeFuture = _db.Types.DeferredFirstOrDefault(t => t.TypeId == applicationDto.TypeId).FutureValue();
+            var environmentFuture = _db.Environments.DeferredFirstOrDefault(e => e.EnvironmentId == applicationDto.EnvironmentId).FutureValue();
+            var ownerFuture = _db.Owners.DeferredFirstOrDefault(o => o.OwnerId == applicationDto.OwnerId).FutureValue();
+            var versionFuture = _db.Versions.DeferredFirstOrDefault(v => v.VersionId == applicationDto.VersionId).FutureValue();
+            var stageFuture = _db.Stages.DeferredFirstOrDefault(s => s.StageId == applicationDto.StageId).FutureValue();
+            var existingApplicationFuture = _db.Applications.DeferredFirstOrDefault(a => a.Name == applicationDto.Name).FutureValue();
 
+            var type = await typeFuture.ValueAsync();
+            var environment = await environmentFuture.ValueAsync();
+            var owner = await ownerFuture.ValueAsync();
+            var version = await versionFuture.ValueAsync();
+            var stage = await stageFuture.ValueAsync();
+            var existingApplication = await existingApplicationFuture.ValueAsync();
+            
             if (type == null)
                 return BadRequest($"Invalid TypeId = {applicationDto.TypeId}");
-
-            var environment = _db.Environments.FirstOrDefault(e => e.EnvironmentId == applicationDto.EnvironmentId);
 
             if (environment == null)
                 return BadRequest($"Invalid EnvironmentId = {applicationDto.EnvironmentId}");
 
-            var owner = _db.Owners.FirstOrDefault(o => o.OwnerId == applicationDto.OwnerId);
-
             if (owner == null)
                 return BadRequest($"Invalid OwnerId = {applicationDto.OwnerId}");
-
-            var version = _db.Versions.FirstOrDefault(v => v.VersionId == applicationDto.VersionId);
-
+            
             if (version == null)
-                return BadRequest($"Invalid VersionId = {applicationDto.VersionId}");
-
-            var stage = _db.Stages.FirstOrDefault(s => s.StageId == applicationDto.StageId);
-
+                return BadRequest($"Invalid VersionId = {applicationDto.VersionId}"); 
+            
             if (stage == null)
                 return BadRequest($"Invalid StageId = {applicationDto.StageId}");
 
-            var existingApplication = _db.Applications.FirstOrDefault(a => a.Name == applicationDto.Name);
             if (existingApplication != null)
                 return BadRequest($"Application with 'Name = {applicationDto.Name}' already exists");
 
