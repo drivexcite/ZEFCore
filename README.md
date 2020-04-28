@@ -2,6 +2,57 @@
 
 This repository contains a sample application that demostrates two strategies for reducing the number of database roundtrips in an ASP.NET Core Application using an Entity Framework Core data access layer.
 
+## Sample scenario: Validating entity creation with many lookup tables as navigation properties.
+The starting state for this example is located inside the ApplicationController.Create method, using standard EF Core:
+```csharp
+var type = await _db.Types.FirstOrDefaultAsync(t => t.TypeId == applicationDto.TypeId);
+
+if (type == null)
+	return BadRequest($"Invalid TypeId = {applicationDto.TypeId}");
+
+var environment = await _db.Environments.FirstOrDefaultAsync(e => e.EnvironmentId == applicationDto.EnvironmentId);
+
+if (environment == null)
+	return BadRequest($"Invalid EnvironmentId = {applicationDto.EnvironmentId}");
+
+var owner = await _db.Owners.FirstOrDefaultAsync(o => o.OwnerId == applicationDto.OwnerId);
+
+if (owner == null)
+	return BadRequest($"Invalid OwnerId = {applicationDto.OwnerId}");
+
+var version = await _db.Versions.FirstOrDefaultAsync(v => v.VersionId == applicationDto.VersionId);
+
+if (version == null)
+	return BadRequest($"Invalid VersionId = {applicationDto.VersionId}");
+
+var stage = await _db.Stages.FirstOrDefaultAsync(s => s.StageId == applicationDto.StageId);
+
+if (stage == null)
+	return BadRequest($"Invalid StageId = {applicationDto.StageId}");
+
+var existingApplication = await _db.Applications.FirstOrDefaultAsync(a => a.Name == applicationDto.Name);
+
+if (existingApplication != null)
+	return BadRequest($"Application with 'Name = {applicationDto.Name}' already exists");
+
+var application = new Application
+{
+	Name = applicationDto.Name,
+	Type = type,
+	Environment = environment,
+	Owner = owner,
+	Version = version,
+	Stage = stage
+};
+
+_db.Applications.Add(application);
+await _db.SaveChangesAsync();
+
+return new ObjectResult(application.ToApplicationDto()) { StatusCode = 201 };
+
+```
+For brevity, all the persistence code is embedded directly in the controller action. The key to understanding this problem is by noticing that in that validation method, there will be up to 5 additional database roundtrips, one per check.
+
 ## First strategy: Bundling queries.
 In this first strategy, all the requests made to the database for validation purposes, are deferred until any value of the first query of the bundle is needed, then Z EF Plus will behind the scenes bundle the queries in a single roundtrip, therefore reducing the latency of the entire data access interaction.
 
